@@ -28,9 +28,9 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install zip pdo_mysql mbstring exif pcntl bcmath opcache -j$(nproc) gd
 
-# Install Swoole extensio
-RUN pecl install redis swoole \
-    && docker-php-ext-enable redis swoole
+# Install Redis extension
+RUN pecl install redis \
+    && docker-php-ext-enable redis
 
 # Install Node.js and npm
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -45,8 +45,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . /var/www/html
 
 # Set permissions
-# RUN chown -R www-data:www-data /var/www/html \
-#     && chmod -R 775 /var/www/html/storage
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage
 
 # Set the memory limit
 RUN echo "memory_limit=2048M" > /usr/local/etc/php/conf.d/docker-php-memory-limit.ini
@@ -58,6 +58,7 @@ RUN chmod u+x /usr/local/bin/entrypoint.sh
 # Expose port
 EXPOSE 9000
 EXPOSE 8000
+EXPOSE 8080
 
 # Set entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

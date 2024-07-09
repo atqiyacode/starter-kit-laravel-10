@@ -34,8 +34,8 @@ php artisan pulse:restart &
 php artisan horizon &
 
 # Start Octane and WebSocket servers in the background
-# php artisan serve --host=0.0.0.0
-php artisan octane:start --host=0.0.0.0 &
+php artisan serve --host=0.0.0.0 &
+# php artisan octane:start --host=0.0.0.0 &
 
 # Execute any additional command passed to the script
 exec "$@"

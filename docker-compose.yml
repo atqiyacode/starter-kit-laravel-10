@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     image: laravel-app
     container_name: laravel-app
-    # restart: unless-stopped
+    restart: unless-stopped
     tty: true
     ports:
       - "8080:8080"
@@ -19,11 +19,12 @@ services:
       - starter-kit-network
     depends_on:
       - redis
+      - db
 
   webserver:
     image: nginx:alpine
     container_name: laravel-webserver
-    # restart: unless-stopped
+    restart: unless-stopped
     tty: true
     ports:
       - "8070:80"
@@ -35,10 +36,27 @@ services:
     depends_on:
       - app
 
+  db:
+    image: mysql:latest
+    container_name: laravel-db
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3366:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: Bsdcity@2024
+      MYSQL_DATABASE: atqiyacode
+      MYSQL_USER: atqiyacode
+      MYSQL_PASSWORD: Abcd@1234
+    volumes:
+      - ./dbdata:/var/lib/mysql
+    networks:
+      - starter-kit-network
+
   redis:
     image: redis:alpine
     container_name: laravel-redis
-    # restart: unless-stopped
+    restart: unless-stopped
     tty: true
     ports:
       - "6377:6379"
