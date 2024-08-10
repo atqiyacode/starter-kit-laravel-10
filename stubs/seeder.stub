@@ -1,0 +1,27 @@
+<?php
+
+namespace DummyNamespace;
+
+use DummyFactoryPath;
+use DummyModelPath;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use Illuminate\Database\Seeder;
+
+class DummyClass extends Seeder
+{
+    use WithoutModelEvents;
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
+    public function run(): void
+    {
+        // DummyFactoryName::new()->count(10)->create();
+
+        // \DummyModelPath::create([
+            //
+        // ]);
+    }
+}

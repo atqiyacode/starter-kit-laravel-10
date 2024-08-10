@@ -1,0 +1,18 @@
+<?php
+
+namespace DummyNamespace;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class DummyClass extends Factory
+{
+
+    protected $model = DummyModelPath::class;
+
+    public function definition(): array
+    {
+        return [
+            // 'sample' => $this->faker->uuid(),
+        ];
+    }
+}

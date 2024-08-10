@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Support\Str;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\select;
 
 class GenerateFilament extends Command
 {
@@ -21,49 +23,53 @@ class GenerateFilament extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Generate a Filament resource based on the selected module and model';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
+        // Get and display the list of panels with search functionality
         $panels = $this->getPanelList();
-        $this->showPanelList($panels);
+        $panelSelected = select(
+            'Select the Panel',
+            $panels,
+            scroll: 15,
+            hint: 'Select One'
+        );
 
-        $panelIndex = $this->ask('Select the Panel ?');
-        $panelSelected = $panels[$panelIndex - 1];
-
-
+        // Get and display the list of modules with search functionality
         $modules = $this->getModuleList();
-        $this->showModulelList($modules);
-
-        $modelIndex = $this->ask('Select the Module ?');
-        $folderModule = $modules[$modelIndex - 1];
+        $folderModule = select(
+            'Select the Module',
+            $modules,
+            scroll: 15,
+            hint: 'Select One'
+        );
 
         if (!empty($folderModule)) {
-
+            // Get and display the list of models with search functionality
             $models = $this->getModelList($folderModule);
             if (empty($models)) {
                 $this->info('No models found.');
             } else {
-                $this->showModelList($models);
-                $modelIndex = $this->ask('Enter the number of the model to run the seeder for');
+                $modelName = select(
+                    'Select the Model',
+                    $models,
+                    scroll: 15,
+                    hint: 'Select One'
+                );
 
-                if (is_numeric($modelIndex) && $modelIndex > 0 && $modelIndex <= count($models)) {
-                    $modelName = $models[$modelIndex - 1];
+                // Confirm if the user wants a simple resource
+                $simple = confirm('Is this a simple resource?', false);
 
-                    $simple = $this->confirm('is Simple?', false);
-
-                    $this->info("Generate Filament Resource '$modelName'...");
-                    $result = $this->generate($folderModule, $modelName, $simple, $panelSelected);
-                    if ($result === 0) {
-                        $this->info("Generate Filament Resource completed for '$modelName'.");
-                    } else {
-                        $this->error("Failed to generate Filament Resource for '$modelName'.");
-                    }
+                $this->info("🕐 Generating Filament Resource '$modelName'...");
+                $result = $this->generate($folderModule, $modelName, $simple, $panelSelected);
+                if ($result === 0) {
+                    $this->info("✅ Generation of Filament Resource completed for '$modelName'.");
                 } else {
-                    $this->error('Invalid input. Please enter a valid number.');
+                    $this->error("🚨 Failed to generate Filament Resource for '$modelName'.");
                 }
             }
         }
@@ -71,16 +77,14 @@ class GenerateFilament extends Command
 
     protected function generate($folderModule, $modelName, $simple, $panelSelected)
     {
-        // Remove "PanelProvider" from the end
+        // Remove "PanelProvider" from the end of the panel name
         $baseName = Str::before($panelSelected, 'PanelProvider');
 
-        // Convert to snake case
+        // Convert the panel name to snake case and replace underscores with hyphens
         $snakeCaseString = Str::snake($baseName);
-
-        // Replace underscores with hyphens
         $panelName = Str::replace('_', '-', $snakeCaseString);
 
-
+        // Define the model namespace
         $modelNamespace = "Modules\\$folderModule\\App\\Models";
         $fullModelName = $modelNamespace . '\\' . $modelName;
 
@@ -90,7 +94,7 @@ class GenerateFilament extends Command
             class_uses_recursive($fullModelName)
         );
 
-        // Base command and options
+        // Base command and options for generating the resource
         $command = 'make:filament-resource';
         $options = [
             'name' => $modelName,
@@ -98,7 +102,7 @@ class GenerateFilament extends Command
             '--panel' => Str::slug($panelName),
         ];
 
-        // Add simple option
+        // Add options for generating the resource
         $options['--generate'] = true;
         if ($simple) {
             $options['--simple'] = true;
@@ -106,12 +110,12 @@ class GenerateFilament extends Command
             $options['--view'] = true;
         }
 
-        // Add soft deletes option
+        // Add the soft deletes option if applicable
         if ($usesSoftDeletes) {
             $options['--soft-deletes'] = true;
         }
 
-        // Call the Artisan command
+        // Call the Artisan command to generate the resource
         $result = Artisan::call($command, $options);
         return $result;
     }
@@ -123,11 +127,12 @@ class GenerateFilament extends Command
      */
     protected function getModelList($folderModule)
     {
-        $modelNamespace = "Modules\\$folderModule\\App\\Models\\"; // Adjust the namespace based on your project structure
+        $modelNamespace = "Modules\\$folderModule\\App\\Models\\";
         $modelPath = base_path("Modules/$folderModule/App/Models");
 
         $models = [];
 
+        // Get all files in the model path and add them to the list
         $files = File::allFiles($modelPath);
 
         foreach ($files as $file) {
@@ -149,15 +154,20 @@ class GenerateFilament extends Command
     {
         $tableData = [];
 
+        // Prepare the data for the table
         foreach ($models as $key => $model) {
             $tableData[] = [$key + 1, $model];
         }
 
+        // Display the table
         $this->table(['Number', 'Model'], $tableData);
     }
 
-
-
+    /**
+     * Get a list of modules.
+     *
+     * @return array
+     */
     protected function getModuleList()
     {
         $modulesFolderPath = base_path('Modules');
@@ -174,24 +184,38 @@ class GenerateFilament extends Command
         return array_filter($subfolderNames);
     }
 
-    protected function showModulelList($modules)
+    /**
+     * Display a table of modules.
+     *
+     * @param array $modules
+     * @return void
+     */
+    protected function showModuleList($modules)
     {
         $tableData = [];
 
+        // Prepare the data for the table
         foreach ($modules as $key => $model) {
             $tableData[] = [$key + 1, $model];
         }
 
+        // Display the table
         $this->table(['Number', 'Module'], $tableData);
     }
 
+    /**
+     * Get a list of panels.
+     *
+     * @return array
+     */
     protected function getPanelList()
     {
-        $modelNamespace = "App\\Providers\\Filament\\"; // Adjust the namespace based on your project structure
+        $modelNamespace = "App\\Providers\\Filament\\";
         $modelPath = base_path("app/Providers/Filament");
 
         $models = [];
 
+        // Get all files in the model path and add them to the list
         $files = File::allFiles($modelPath);
 
         foreach ($files as $file) {
@@ -203,14 +227,22 @@ class GenerateFilament extends Command
         return array_filter($models);
     }
 
+    /**
+     * Display a table of panels.
+     *
+     * @param array $panels
+     * @return void
+     */
     protected function showPanelList($panels)
     {
         $tableData = [];
 
+        // Prepare the data for the table
         foreach ($panels as $key => $panel) {
             $tableData[] = [$key + 1, $panel];
         }
 
+        // Display the table
         $this->table(['Number', 'Panel'], $tableData);
     }
 }

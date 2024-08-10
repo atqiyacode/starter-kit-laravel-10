@@ -1,0 +1,15 @@
+<?php
+
+namespace $NAMESPACE$;
+
+use LaravelEasyRepository\Repository;
+
+interface $CLASS$ extends Repository
+{
+
+    public function getAll();
+    public function getPaginate();
+    public function findById($id);
+    public function destroyMultiple($ids);
+    public function export($format);
+}

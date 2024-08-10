@@ -52,7 +52,6 @@
         "ms-vscode-remote.remote-ssh-edit",
         "ms-vscode.remote-explorer",
         "randomfractalsinc.vscode-data-preview",
-        "devsense.intelli-php-vscode",
         "ahinkle.laravel-model-snippets",
         "austenc.laravel-docs",
         "mehedidracula.php-constructor",
@@ -62,6 +61,7 @@
         "bradlc.vscode-tailwindcss",
         "alperenersoy.filament-snippets",
         "juniorpeixoto.vscode-filamentphp-helpers",
-        "qwtel.sqlite-viewer"
+        "qwtel.sqlite-viewer",
+        "mohamedbenhida.laravel-intellisense"
     ]
 }

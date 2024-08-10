@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+use function Laravel\Prompts\select;
+
 class GenerateExporter extends Command
 {
     /**
@@ -30,38 +32,31 @@ class GenerateExporter extends Command
     public function handle()
     {
         $panels = $this->getPanelList();
-        $this->showPanelList($panels);
+        $panelSelected = select(
+            'Select the Panel',
+            $panels,
+            scroll: 15,
+            hint: 'Select One'
+        );
 
-        $panelIndex = $this->ask('Select the Panel ?');
-        $panelSelected = $panels[$panelIndex - 1];
-
-
+        // Get and display the list of modules with search functionality
         $modules = $this->getModuleList();
-        $this->showModulelList($modules);
-
-        $modelIndex = $this->ask('Select the Module ?');
-        $folderModule = $modules[$modelIndex - 1];
+        $folderModule = select(
+            'Select the Module',
+            $modules,
+            scroll: 15,
+            hint: 'Select One'
+        );
 
         if (!empty($folderModule)) {
 
             $models = $this->getModelList($folderModule);
             if (empty($models)) {
-                $this->info('No models found.');
+                $this->info('😞 No models found.');
             } else {
                 foreach ($models as $key => $value) {
                     $this->generate($folderModule, $value, $panelSelected);
                 }
-                // $this->showModelList($models);
-                // $modelIndex = $this->ask('Enter the number of the model to run the seeder for');
-
-                // if (is_numeric($modelIndex) && $modelIndex > 0 && $modelIndex <= count($models)) {
-                //     $modelName = $models[$modelIndex - 1];
-
-                //     $this->info("Generate Filament Exporter '$modelName'...");
-                //     $this->generate($folderModule, $modelName, $panelSelected);
-                // } else {
-                //     $this->error('Invalid input. Please enter a valid number.');
-                // }
             }
         }
     }
@@ -126,12 +121,12 @@ class GenerateExporter extends Command
             );
             File::put($exportPath, $stubContent);
 
-            $this->info("INFO : {$modelLabel} Exporter created successfully.");
+            $this->info("INFO : ✅ {$modelLabel} Exporter created successfully.");
         } else {
-            $this->error("ERROR : {$modelLabel} Exporter already exists.");
+            $this->error("ERROR : 🚨 {$modelLabel} Exporter already exists.");
         }
 
-        $this->info("------- DONE -------");
+        $this->info("------- 🌟 DONE 🌟 -------");
     }
 
     protected function createDirectory($path)

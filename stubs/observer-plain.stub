@@ -1,0 +1,49 @@
+<?php
+
+namespace DummyNamespace;
+
+use DummyModelClass;
+use DummyEventClass;
+
+
+class DummyClass
+{
+    /**
+     * Dispatch events and log activities when the EmployeeType is created, updated, deleted, restored, or force deleted.
+     *
+     */
+    protected function handleEventAndLogActivity(DummyModel $data): void
+    {
+        $response = new DummyResourceClass($data);
+        DummyModelEvent::dispatch($response);
+
+    }
+
+    /**
+     * Handle the EmployeeType "created" event.
+     *
+     */
+    public function created(DummyModel $data): void
+    {
+        $this->handleEventAndLogActivity($data);
+    }
+
+    /**
+     * Handle the EmployeeType "updated" event.
+     *
+     */
+    public function updated(DummyModel $data): void
+    {
+        $this->handleEventAndLogActivity($data);
+    }
+
+    /**
+     * Handle the EmployeeType "deleted" event.
+     *
+     */
+    public function deleted(DummyModel $data): void
+    {
+        $this->handleEventAndLogActivity($data);
+    }
+
+}

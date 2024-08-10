@@ -2,10 +2,14 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Support\Str;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
+
+use function Laravel\Prompts\confirm;
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
 
 class ModuleGenerator extends Command
 {
@@ -28,43 +32,42 @@ class ModuleGenerator extends Command
      */
     public function handle()
     {
+        // Get the list of modules
         $modules = $this->getModuleList();
-        $this->showModulelList($modules);
 
-        $modelIndex = null;
+        // Use a select prompt with search functionality to choose a module
+        $module = select(
+            label: 'Select the Module',
+            options: $modules,
+            scroll: 15
+        );
 
-        // Loop until the user inputs a valid number
-        while (!is_numeric($modelIndex)) {
-            $modelIndex = $this->ask('Select the Module ? (Enter number)');
+        // Use the text prompt to ask for the model name if not provided
+        $model = $this->argument('ModelName') ?: text(
+            label: 'What is the Model name?'
+        );
 
-            if (!is_numeric($modelIndex)) {
-                $this->warn("Please enter a valid number.");
-            }
-        }
+        // Use confirm prompts to ask for routes and soft delete options
+        $routes = confirm('Need Routes?', true);
+        $softDelete = confirm('Need Soft Delete?', true);
 
-        // Convert the input to an integer
-        $modelIndex = (int)$modelIndex;
+        // Use the text prompt to ask for the table schema
+        $table = text('Write your table schema');
 
-        if (empty($modelIndex) || !isset($modules[$modelIndex - 1])) {
-            $this->warn("Please Select Existing Module.");
-            exit(); // Exit the script, you can handle this differently based on your requirement
-        }
+        // Construct the Artisan command
+        $command = 'api:generate ' . $model . ' "' . $table . '" -RrmF' .
+            ($softDelete ? ' --soft-delete' : '') .
+            ($module ? " --group=$module" : '');
 
-        $module = $modules[$modelIndex - 1];
-
-        $model = $this->argument('ModelName') ?: $this->ask('What is Model name?');
-
-        $routes = $this->confirm('Need Routes?', true);
-        $softDelete = $this->confirm('Need Soft Delete?', true);
-
-        $table = $this->ask('Write your table schema');
-
-        $command = 'api:generate ' . $model . ' "' . $table . '" -RrmF' . ($softDelete ? ' --soft-delete' : '') . ($module ? " --group=$module" : '');
-
+        // Call the Artisan command
         Artisan::call($command);
 
+        // Wait for a few seconds
+        $this->info('Processing...');
         sleep(3);
+        $this->info('✅ Finish ...');
 
+        // Advance the process (not provided in your code, assuming a custom method)
         $this->advance($model, $module, $softDelete);
     }
 
@@ -147,19 +150,17 @@ class ModuleGenerator extends Command
                 $this->createExport($folderModule, $modelName);
             }
         }
-
-
         // info success generated files
-        $this->warn('--------------------------------------');
-        $this->info('Module Content generated successfully.');
+
+        $this->info('🌟 Module Content generated successfully 🌟');
     }
     protected function createController($folderModule, $modelName, $SoftDelete)
     {
         $stubPath = $SoftDelete ? base_path("stubs/controller.stub") : base_path("stubs/controller-plain.stub");
-        // $stubPathApi = $SoftDelete ? base_path("stubs/controller-api.stub") : base_path("stubs/controller-api-plain.stub");
+        $stubPathApi = $SoftDelete ? base_path("stubs/controller-api.stub") : base_path("stubs/controller-api-plain.stub");
 
         $controllerPath = base_path("Modules/{$folderModule}/App/Http/Controllers/{$modelName}Controller.php");
-        // $controllerPathApi = base_path("Modules/{$folderModule}/App/Http/Controllers/API/Api{$modelName}Controller.php");
+        $controllerPathApi = base_path("Modules/{$folderModule}/App/Http/Controllers/API/Api{$modelName}Controller.php");
 
         $this->createDirectory($controllerPath);
 
@@ -176,24 +177,22 @@ class ModuleGenerator extends Command
             );
             File::put($controllerPath, $stubContent);
 
-            // $stubContentApi = str_replace(
-            //     ['DummyNamespace', 'DummyClass', 'DummyModule', 'DummyModel'],
-            //     [
-            //         "Modules\\{$folderModule}\\App\\Http\\Controllers\\API",
-            //         "Api{$modelName}Controller",
-            //         "$folderModule",
-            //         "$modelName",
-            //     ],
-            //     File::get($stubPathApi)
-            // );
-            // File::put($controllerPathApi, $stubContentApi);
+            $stubContentApi = str_replace(
+                ['DummyNamespace', 'DummyClass', 'DummyModule', 'DummyModel'],
+                [
+                    "Modules\\{$folderModule}\\App\\Http\\Controllers\\API",
+                    "Api{$modelName}Controller",
+                    "$folderModule",
+                    "$modelName",
+                ],
+                File::get($stubPathApi)
+            );
+            File::put($controllerPathApi, $stubContentApi);
 
-            $this->info("{$modelName}Controller created successfully.");
+            $this->info("✅ Controller - {$modelName}Controller created successfully.");
         } else {
-            $this->warn("{$modelName}Controller already exists.");
+            $this->warn("🚨 Controller - {$modelName}Controller already exists.");
         }
-        $this->warn('--------------------------------------');
-        $this->info('Module Controller generated successfully.');
     }
 
     protected function createRoute($folderModule, $modelName, $SoftDelete)
@@ -217,16 +216,16 @@ class ModuleGenerator extends Command
         =           $folderModule - $modelName           =
         =============================*/
         Route::middleware(['auth:sanctum'])->prefix('{$group}')->group(function () {
-            Route::apiResource('/{$slug}', \\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class);
+            Route::apiResource('/{$slug}', \\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class);
             Route::group([
                 'prefix' => '{$slug}',
             ], function () {
-                Route::get('{id}/restore', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'restore']);
-                Route::delete('{id}/force-delete', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'forceDelete']);
-                Route::post('destroy-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'destroyMultiple']);
-                Route::post('restore-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'restoreMultiple']);
-                Route::post('force-delete-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'forceDeleteMultiple']);
-                Route::get('export/{format}', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\{$modelName}Controller::class, 'export']);
+                Route::get('{id}/restore', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'restore']);
+                Route::delete('{id}/force-delete', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'forceDelete']);
+                Route::post('destroy-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'destroyMultiple']);
+                Route::post('restore-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'restoreMultiple']);
+                Route::post('force-delete-multiple', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'forceDeleteMultiple']);
+                Route::get('export/{format}', [\\Modules\\{$folderModule}\\App\\Http\\Controllers\\API\\Api{$modelName}Controller::class, 'export']);
             });
         });
         /*===========================
@@ -257,9 +256,10 @@ class ModuleGenerator extends Command
 
         File::append($routeFilePath, $SoftDelete ? $customRoutes : $customRoutesPlain);
 
-        $this->warn('--------------------------------------');
-        $this->info("$folderModule - $modelName routes added successfully!");
+
+        $this->info("✅ $folderModule - $modelName routes added successfully!");
     }
+
     protected function createSeeder($folderModule, $modelName)
     {
         $stubPath = base_path("stubs/seeder.stub");
@@ -282,13 +282,10 @@ class ModuleGenerator extends Command
             );
             File::put($seederPath, $stubContent);
 
-            $this->info("{$modelName}Seeder created successfully.");
+            $this->info("✅ Seeder - {$modelName}Seeder created successfully.");
         } else {
-            $this->warn("{$modelName}Seeder already exists.");
+            $this->warn("🚨 Seeder - {$modelName}Seeder already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Seeder generated successfully.');
     }
     protected function createFactory($folderModule, $modelName)
     {
@@ -310,13 +307,10 @@ class ModuleGenerator extends Command
             );
             File::put($factoryPath, $stubContent);
 
-            $this->info("{$modelName}Factory created successfully.");
+            $this->info("✅ Factory - {$modelName}Factory created successfully.");
         } else {
-            $this->warn("{$modelName}Factory already exists.");
+            $this->warn("🚨 Factory - {$modelName}Factory already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Factory generated successfully.');
     }
     protected function createObserver($folderModule, $modelName, $SoftDelete)
     {
@@ -341,13 +335,10 @@ class ModuleGenerator extends Command
             );
             File::put($observerPath, $stubContent);
 
-            $this->info("{$modelName}Observer created successfully.");
+            $this->info("✅ Observer - {$modelName}Observer created successfully.");
         } else {
-            $this->warn("{$modelName}Observer already exists.");
+            $this->warn("🚨 Observer - {$modelName}Observer already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Observer generated successfully.');
     }
     protected function createEvent($folderModule, $modelName)
     {
@@ -370,13 +361,10 @@ class ModuleGenerator extends Command
             );
             File::put($eventPath, $stubContent);
 
-            $this->info("{$modelName}Event created successfully.");
+            $this->info("✅ Event - {$modelName}Event created successfully.");
         } else {
-            $this->warn("{$modelName}Event already exists.");
+            $this->warn("🚨 Event - {$modelName}Event already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Event generated successfully.');
     }
     protected function createPolicy($folderModule, $modelName)
     {
@@ -400,13 +388,10 @@ class ModuleGenerator extends Command
             );
             File::put($policyPath, $stubContent);
 
-            $this->info("{$modelName}Policy created successfully.");
+            $this->info("✅ Policy - {$modelName}Policy created successfully.");
         } else {
-            $this->warn("{$modelName}Policy already exists.");
+            $this->warn("🚨 Policy - {$modelName}Policy already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Policy generated successfully.');
     }
     protected function createExport($folderModule, $modelName)
     {
@@ -431,13 +416,10 @@ class ModuleGenerator extends Command
 
             $this->createExportView($folderModule, $modelName);
 
-            $this->info("{$modelName}Export created successfully.");
+            $this->info("✅ Export - {$modelName}Export created successfully.");
         } else {
-            $this->warn("{$modelName}Export already exists.");
+            $this->warn("🚨 Export - {$modelName}Export already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Export generated successfully.');
     }
     protected function createExportView($folderModule, $modelName)
     {
@@ -458,14 +440,12 @@ class ModuleGenerator extends Command
                 File::get($stubPath)
             );
             File::put($exportPath, $stubContent);
-            $this->info("{$modelName}.blade.php created successfully.");
+            $this->info("✅ View - {$modelName}.blade.php created successfully.");
         } else {
-            $this->warn("{$modelName}.blade.php already exists.");
+            $this->warn("🚨 View - {$modelName}.blade.php already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Export view by Model generated successfully.');
     }
+
     protected function createImport($folderModule, $modelName)
     {
         $stubPath = base_path("stubs/import.collection.stub");
@@ -486,13 +466,10 @@ class ModuleGenerator extends Command
                 File::get($stubPath)
             );
             File::put($importPath, $stubContent);
-            $this->info("{$modelName}Import created successfully.");
+            $this->info("✅ Import - {$modelName}Import created successfully.");
         } else {
-            $this->warn("{$modelName}Import already exists.");
+            $this->warn("🚨 Import - {$modelName}Import already exists.");
         }
-
-        $this->warn('--------------------------------------');
-        $this->info('Module Import generated successfully.');
     }
 
     protected function createInterface($type, $folderModule, $modelName, $SoftDelete)
@@ -510,10 +487,10 @@ class ModuleGenerator extends Command
                 File::get($stubPath)
             );
             File::put($interfacePath, $stubContent);
-            $this->warn('--------------------------------------');
-            $this->info("{$modelName}{$type}Interface created successfully.");
+
+            $this->info("✅ Interface - {$modelName}{$type}Interface created successfully.");
         } else {
-            $this->warn("{$modelName}{$type}Interface already exists.");
+            $this->warn("🚨 Interface - {$modelName}{$type}Interface already exists.");
         }
     }
 
@@ -559,10 +536,10 @@ class ModuleGenerator extends Command
                 File::get($stubPath)
             );
             File::put($implementPath, $stubContent);
-            $this->warn('--------------------------------------');
-            $this->info("{$modelName}RepositoryImplement created successfully.");
+
+            $this->info("✅ Repository - {$modelName}RepositoryImplement created successfully.");
         } else {
-            $this->warn("{$modelName}RepositoryImplement already exists.");
+            $this->warn("🚨 Repository -{$modelName}RepositoryImplement already exists.");
         }
     }
 
@@ -605,10 +582,10 @@ class ModuleGenerator extends Command
                 File::get($stubPath)
             );
             File::put($implementPath, $stubContent);
-            $this->warn('--------------------------------------');
-            $this->info("{$modelName}ServiceImplement created successfully.");
+
+            $this->info("✅ Service - {$modelName}ServiceImplement created successfully.");
         } else {
-            $this->warn("{$modelName}ServiceImplement already exists.");
+            $this->warn("🚨 Service - {$modelName}ServiceImplement already exists.");
         }
     }
 
